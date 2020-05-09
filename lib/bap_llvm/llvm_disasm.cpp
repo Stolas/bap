@@ -247,7 +247,13 @@ public:
         }
 
         shared_ptr<const llvm::MCAsmInfo>
-            asm_info(target->createMCAsmInfo(*reg_info, triple));
+            asm_info(target->createMCAsmInfo(*reg_info, triple
+#if LLVM_VERSION_MAJOR < 10
+                     )
+#else
+    , llvm::MCTargetOptions())
+#endif
+        );
 
         if (!asm_info) {
             if (debug_level > 0)
@@ -408,8 +414,11 @@ public:
             if (len > 0) {
                 status = dis->getInstruction
                     (mcinst, size, view(pc), pc,
-                     (debug_level > 2 ? llvm::errs() : llvm::nulls()),
-                     llvm::nulls());
+                     (debug_level > 2 ? llvm::errs() : llvm::nulls())
+#if LLVM_VERSION_MAJOR < 10
+                     , llvm::nulls()
+#endif
+                     );
             }
 
             location loc = {
@@ -457,7 +466,8 @@ public:
             llvm::raw_string_ostream stream(data);
 #if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR == 8          \
     || LLVM_VERSION_MAJOR >= 4
-            printer->printInst(&mcinst, stream, "", *sub_info);
+// LLVM 10 patch
+            printer->printInst(&mcinst, 0, "", *sub_info, stream);
 #else
             printer->printInst(&mcinst, stream, "");
 #endif
@@ -615,30 +625,14 @@ private:
     }
 };
 
-// See https://github.com/BinaryAnalysisPlatform/bap/issues/1081
-// for details
-bool is_error_prone_arch(const char *triple) {
-    if (LLVM_VERSION_MAJOR < 8)
-        return std::string(triple) == "aarch64";
-    else
-        return false;
-}
-
-
 struct create_llvm_disassembler : disasm_factory {
     result<disassembler_interface>
     create(const char *triple, const char *cpu, int debug_level) {
+        auto llvm = llvm_disassembler::create(triple, cpu, debug_level);
         result<disassembler_interface> r;
-        if (is_error_prone_arch(triple)) {
-            if (debug_level > 0)
-                output_error(triple, cpu, "unsupported target", "consider to update to llvm version >= 8.0");
-            r.err = bap_disasm_unsupported_target;
-        } else {
-            auto llvm = llvm_disassembler::create(triple, cpu, debug_level);
-            r.dis = llvm.dis;
-            if (!r.dis)
-                r.err = llvm.err;
-        }
+        r.dis = llvm.dis;
+        if (!r.dis)
+            r.err = llvm.err;
         return r;
     }
 };

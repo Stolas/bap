@@ -152,10 +152,18 @@ using namespace llvm::object;
 typedef std::tuple<std::string, uint64_t, uint64_t> section_descr;
 
 error_or<std::string> getName(const SectionRef &sec) {
+#if LLVM_VERSION_MAJOR >= 10
+    Expected<StringRef> name = sec.getName();
+    if (name)
+        return success(name);
+	// name.takeError()
+    return failure("LLVM 10");
+#else
     StringRef name;
     if (error_code ec = sec.getName(name))
         return failure(ec.message());
     return success(name.str());
+#endif
 }
 
 std::string getName(const coff_section &s) { return s.Name;           }
@@ -206,14 +214,27 @@ error_or<uint64_t> image_entry_macho(const MachOObjectFile& obj) {
 error_or<uint64_t> image_entry_coff(const COFFObjectFile& obj) {
     if (obj.getBytesInAddress() == 4) {
         const pe32_header* hdr = 0;
+
+#if LLVM_VERSION_MAJOR >= 10
+        hdr = obj.getPE32Header();
+        if (hdr == nullptr)
+            return failure(std::error_code().message());
+#else
         if (error_code ec = obj.getPE32Header(hdr))
             return failure(ec.message());
+#endif
         if (!hdr) return failure("PE header not found");
         return error_or<uint64_t>(hdr->AddressOfEntryPoint + hdr->ImageBase);
     } else {
         const pe32plus_header *hdr = 0;
+#if LLVM_VERSION_MAJOR >= 10
+        hdr = obj.getPE32PlusHeader();
+        if (hdr == nullptr)
+            return failure(std::error_code().message());
+#else
         if (error_code ec = obj.getPE32PlusHeader(hdr))
             return failure(ec.message());
+#endif
         if (!hdr) return failure("PE+ header not found");
         return error_or<uint64_t>(hdr->AddressOfEntryPoint + hdr->ImageBase);
     }

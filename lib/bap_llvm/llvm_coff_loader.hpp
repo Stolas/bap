@@ -87,7 +87,11 @@ void entry_point(const coff_obj &obj, ogre_doc &s) {
     }
     if (obj.getBytesInAddress() == 4) {
         const pe32_header* hdr = 0;
+#if LLVM_MAJOR >= 10
+        if (hdr = obj.getPE32Header()) { s.fail("Doggo error"); return; }
+#else
         if (auto ec = obj.getPE32Header(hdr)) { s.fail(ec.message()); return; }
+#endif
         if (!hdr) { s.fail("PE header not found"); return; }
         s.entry("entry") << hdr->AddressOfEntryPoint;
     } else {

@@ -94,10 +94,16 @@ std::vector<SymbolRef> symbols(const ObjectFile &obj) {
 }
 
 error_or<std::string> section_name(const SectionRef &sec) {
+#if LLVM_VERSION_MAJOR >= 10
+    auto name = sec.getName();
+    // Todo; Proper error check
+    return success(name);
+#else
     StringRef name;
     auto er = sec.getName(name);
     if (!er) return success(name.str());
     else return failure(er.message());
+#endif
 }
 
 error_or<uint64_t> section_address(const SectionRef &sec) {
