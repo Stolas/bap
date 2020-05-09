@@ -87,8 +87,9 @@ void entry_point(const coff_obj &obj, ogre_doc &s) {
     }
     if (obj.getBytesInAddress() == 4) {
         const pe32_header* hdr = 0;
-#if LLVM_MAJOR >= 10
-        if (hdr = obj.getPE32Header()) { s.fail("Doggo error"); return; }
+#if LLVM_VERSION_MAJOR >= 10
+        hdr = obj.getPE32Header();
+        if (!hdr) { s.fail("Doggo error"); return; }
 #else
         if (auto ec = obj.getPE32Header(hdr)) { s.fail(ec.message()); return; }
 #endif
@@ -320,10 +321,16 @@ error_or<uint64_t> get_image_base(const coff_obj &obj) {
 
 error_or<pe32plus_header> get_pe32plus_header(const coff_obj &obj) {
     const pe32plus_header *hdr = 0;
+#if LLVM_VERSION_MAJOR >= 10
+    hdr = obj.getPE32PlusHeader();
+    if (!hdr) failure("Nope, needs error");
+#else
     auto ec = obj.getPE32PlusHeader(hdr);
     if (ec) return failure(ec.message());
     else if (!hdr) { return failure("PE+ header not found"); }
-    else return success(*hdr);
+    else
+#endif
+    return success(*hdr);
 }
 
 #elif LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR == 4
@@ -383,8 +390,13 @@ error_or<uint64_t> get_image_base(const COFFObjectFile &obj) {
     if (is_relocatable(obj)) return success(uint64_t(0));
     if (obj.getBytesInAddress() == 4) {
         const pe32_header *hdr;
+#if LLVM_VERSION_MAJOR >= 10
+        hdr = obj.getPE32Header();
+        if (!hdr) return failure("Todo; errormsg");
+#else
         if (error_code ec = obj.getPE32Header(hdr))
             return failure(ec.message());
+#endif
         return error_or<uint64_t>(hdr->ImageBase);
     } else {
         error_or<pe32plus_header> hdr = get_pe32plus_header(obj);
