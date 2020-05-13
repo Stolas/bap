@@ -299,8 +299,15 @@ error_or<int64_t> symbol_address(const macho &obj, const SymbolRef &sym) {
 
 void relocations(const macho &obj, ogre_doc &s) {
     for (auto sec : prim::sections(obj))
-        for (auto rel : prim::relocations(sec))
-            symbol_reference(obj, rel, sec.getRelocatedSection(), s);
+        for (auto rel : prim::relocations(sec)) {
+#if LLVM_VERSION_MAJOR >= 10
+            auto section = sec.getRelocatedSection().get();
+            // Todo; check for Error
+#else
+            auto section = sec.getRelocatedSection();
+#endif
+            symbol_reference(obj, rel, section, s);
+        }
 }
 
 bool is_code_section(const macho &obj, const SectionRef &sec) {

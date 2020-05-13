@@ -147,8 +147,15 @@ void symbols(const coff_obj &obj, ogre_doc &s) {
 
 void relocations(const coff_obj &obj, ogre_doc &s) {
     for (auto sec : prim::sections(obj))
-        for (auto rel : prim::relocations(sec))
-            symbol_reference(obj, rel, sec.getRelocatedSection(), s);
+        for (auto rel : prim::relocations(sec)) {
+#if LLVM_VERSION_MAJOR >= 10
+            auto section = sec.getRelocatedSection().get();
+            // Todo; check for Error
+#else
+            auto section = sec.getRelocatedSection();
+#endif
+            symbol_reference(obj, rel, section, s);
+        }
 }
 
 

@@ -272,7 +272,12 @@ bool checked(const ELFObjectFile<T> &obj, SectionRef sec_ref) {
 template <typename T>
 void relocations(const ELFObjectFile<T> &obj, ogre_doc &s) {
     for (auto sec : obj.sections()) {
+#if LLVM_VERSION_MAJOR >= 10
+        auto rel_sec = sec.getRelocatedSection().get();
+        // Todo; check for error
+#else
         auto rel_sec = sec.getRelocatedSection();
+#endif
         if (!checked(obj, sec)) continue;
         for (auto rel : sec.relocations())
             symbol_reference(obj, rel, rel_sec, s);
